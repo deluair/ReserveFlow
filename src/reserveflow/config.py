@@ -118,6 +118,7 @@ class DepollarizationConfig(BaseConfig):
     yuan_adoption_acceleration: float = 0.03
     gold_central_bank_purchases: float = 1800.0  # tonnes per year
     intervention_strength: float = 0.6  # More targeted interventions
+    geopolitical_risk_baseline: float = 0.6  # Elevated risk due to geopolitical tensions
     
     # Alternative reserve assets
     sdr_allocation_increase: float = 0.15
@@ -130,6 +131,9 @@ class DepollarizationConfig(BaseConfig):
     # Sanctions impact
     sanctions_impact_factor: float = 0.3
     reserve_freezing_risk: float = 0.1
+    
+    # Diversification parameters
+    reserve_diversification_speed: float = 0.05  # Faster diversification
 
 
 @dataclass 
@@ -139,6 +143,7 @@ class InflationSurgeConfig(BaseConfig):
     # Inflation parameters
     global_inflation_surge: float = 0.08  # 8% inflation
     inflation_persistence: float = 0.9
+    geopolitical_risk_baseline: float = 0.5  # Moderate risk during inflation surge
     
     # Precious metal rally
     gold_target_price: float = 3500.0  # USD per ounce
@@ -153,4 +158,8 @@ class InflationSurgeConfig(BaseConfig):
     gold_hoarding_intensity: float = 2.0
     reserve_currency_debasement_fear: float = 0.6
     intervention_strength: float = 0.9  # Strong interventions to defend currency
-    gold_central_bank_purchases: float = 2000.0  # tonnes per year (highest during inflation surge) 
+    gold_central_bank_purchases: float = 2000.0  # tonnes per year (highest during inflation surge)
+    
+    # Diversification parameters
+    usd_dominance_decline_rate: float = 0.01  # Moderate decline due to inflation concerns
+    reserve_diversification_speed: float = 0.04  # Faster diversification to hedge inflation 
