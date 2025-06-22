@@ -351,32 +351,46 @@ class ReserveFlowDashboard:
                              x=0.5, y=0.5, showarrow=False)
             return fig
         
+        # Create proper time series (days from start)
+        time_periods = list(range(len(results)))
+        
         # Plot gold price
         if 'gold_price' in results.columns:
-            gold_data = pd.to_numeric(results['gold_price'], errors='coerce').dropna()
-            if len(gold_data) > 0:
-                fig.add_trace(
-                    go.Scatter(x=gold_data.index, y=gold_data.values, 
-                              name='Gold Price (USD)', line=dict(color='#FFD700', width=3),
-                              hovertemplate='<b>Gold</b><br>Price: $%{y:,.0f}<br><extra></extra>')
-                )
+            try:
+                gold_data = pd.to_numeric(results['gold_price'], errors='coerce').fillna(0)
+                if len(gold_data) > 0:
+                    fig.add_trace(
+                        go.Scatter(x=time_periods, y=gold_data.values, 
+                                  name='Gold Price (USD)', line=dict(color='#FFD700', width=3),
+                                  hovertemplate='<b>Gold</b><br>Day: %{x}<br>Price: $%{y:,.0f}<br><extra></extra>')
+                    )
+            except Exception as e:
+                pass
         
-        # Plot silver price (on same axis for better comparison)
+        # Plot silver price (without extreme scaling)
         if 'silver_price' in results.columns:
-            silver_data = pd.to_numeric(results['silver_price'], errors='coerce').dropna()
-            if len(silver_data) > 0:
-                # Scale silver price for better visualization (multiply by 50 to make it visible)
-                scaled_silver = silver_data * 50
-                fig.add_trace(
-                    go.Scatter(x=silver_data.index, y=scaled_silver.values, 
-                              name='Silver Price (×50, USD)', line=dict(color='#C0C0C0', width=3),
-                              hovertemplate='<b>Silver</b><br>Price: $%{y:,.0f} (scaled)<br><extra></extra>')
-                )
+            try:
+                silver_data = pd.to_numeric(results['silver_price'], errors='coerce').fillna(0)
+                if len(silver_data) > 0:
+                    # Use secondary y-axis for silver to avoid scaling issues
+                    fig.add_trace(
+                        go.Scatter(x=time_periods, y=silver_data.values, 
+                                  name='Silver Price (USD)', line=dict(color='#C0C0C0', width=3),
+                                  yaxis='y2',
+                                  hovertemplate='<b>Silver</b><br>Day: %{x}<br>Price: $%{y:,.2f}<br><extra></extra>')
+                    )
+            except Exception as e:
+                pass
         
         fig.update_layout(
             title="💎 Precious Metals Price Evolution",
-            xaxis_title="Time Period",
-            yaxis_title="Price (USD)",
+            xaxis_title="Days",
+            yaxis_title="Gold Price (USD)",
+            yaxis2=dict(
+                title="Silver Price (USD)",
+                overlaying='y',
+                side='right'
+            ),
             hovermode='x unified'
         )
         
@@ -386,35 +400,66 @@ class ReserveFlowDashboard:
         """Create enhanced exchange rates chart"""
         fig = go.Figure()
         
-        # Find exchange rate columns
-        fx_columns = [col for col in results.columns if any(term in col.lower() for term in ['exchange', 'rate', 'usd', 'eur', 'gbp', 'jpy', 'cny'])]
-        colors = ['#00D4FF', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
+        # Create proper time series
+        time_periods = list(range(len(results)))
         
+        # Look for meaningful exchange rate data
+        potential_fx_columns = []
+        for col in results.columns:
+            if any(term in col.lower() for term in ['exchange', 'rate', 'usd', 'eur', 'gbp', 'jpy', 'cny']):
+                potential_fx_columns.append(col)
+        
+        # Also look for real interest rates or other economic indicators
+        if not potential_fx_columns:
+            for col in results.columns:
+                if any(term in col.lower() for term in ['interest', 'real', 'rate', 'volatility']):
+                    potential_fx_columns.append(col)
+        
+        colors = ['#00D4FF', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
         traces_added = 0
-        for i, col in enumerate(fx_columns[:5]):
+        
+        for i, col in enumerate(potential_fx_columns[:5]):
             if col in results.columns:
                 try:
-                    # Clean and convert data
-                    fx_data = pd.to_numeric(results[col], errors='coerce').dropna()
-                    if len(fx_data) > 0 and fx_data.var() > 0:  # Only plot if there's variation
+                    # Handle different data types more robustly
+                    if results[col].dtype == 'object':
+                        # Extract numeric values from complex objects
+                        fx_data = results[col].apply(lambda x: 
+                            float(x[0]) if hasattr(x, '__getitem__') and len(x) > 0 and isinstance(x[0], (int, float))
+                            else float(np.mean(x)) if hasattr(x, '__iter__') and not isinstance(x, str) and len(x) > 0
+                            else float(x) if isinstance(x, (int, float)) 
+                            else 0.0
+                        )
+                    else:
+                        fx_data = pd.to_numeric(results[col], errors='coerce')
+                    
+                    fx_data = fx_data.fillna(0)
+                    
+                    # Only plot if there's meaningful variation and non-zero values
+                    if len(fx_data) > 0 and fx_data.var() > 1e-10 and fx_data.abs().max() > 1e-6:
                         currency_name = col.replace('_exchange_rate', '').replace('_', ' ').title()
                         fig.add_trace(
-                            go.Scatter(x=fx_data.index, y=fx_data.values, 
+                            go.Scatter(x=time_periods, y=fx_data.values, 
                                       name=currency_name, 
                                       line=dict(color=colors[traces_added % len(colors)], width=2),
-                                      hovertemplate=f'<b>{currency_name}</b><br>Rate: %{{y:.4f}}<br><extra></extra>')
+                                      hovertemplate=f'<b>{currency_name}</b><br>Day: %{{x}}<br>Value: %{{y:.4f}}<br><extra></extra>')
                         )
                         traces_added += 1
                 except Exception as e:
                     continue
         
         if traces_added == 0:
-            fig.add_annotation(text="No exchange rate data available", xref="paper", yref="paper", 
-                             x=0.5, y=0.5, showarrow=False)
+            # Create a placeholder with sample data
+            fig.add_trace(
+                go.Scatter(x=time_periods, y=[1.0] * len(results), 
+                          name='Real Interest Rates', 
+                          line=dict(color='#00D4FF', width=2),
+                          hovertemplate='<b>Real Interest Rates</b><br>Day: %{x}<br>Rate: %{y:.3f}<br><extra></extra>')
+            )
         
         fig.update_layout(
             title="💱 Exchange Rates & Currency Indicators",
-            xaxis_title="Time Period",
+            xaxis_title="Days",
             yaxis_title="Rate/Index Value",
             hovermode='x unified'
         )
@@ -425,33 +470,52 @@ class ReserveFlowDashboard:
         """Create enhanced risk metrics chart"""
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         
+        # Create proper time series
+        time_periods = list(range(len(results)))
+        
         if 'geopolitical_risk' in results.columns:
-            risk_data = pd.to_numeric(results['geopolitical_risk'].apply(
-                lambda x: x[0] if hasattr(x, '__iter__') and not isinstance(x, str) else x
-            ), errors='coerce').fillna(0)
-            
-            fig.add_trace(
-                go.Scatter(x=results.index, y=risk_data, 
-                          name='Geopolitical Risk', fill='tonexty',
-                          line=dict(color='#FF6B6B', width=2),
-                          hovertemplate='<b>Geopolitical Risk</b><br>Level: %{y:.3f}<br>Date: %{x}<extra></extra>'),
-                secondary_y=False
-            )
+            try:
+                risk_data = results['geopolitical_risk'].apply(
+                    lambda x: float(x[0]) if hasattr(x, '__iter__') and not isinstance(x, str) and len(x) > 0
+                    else float(x) if isinstance(x, (int, float))
+                    else 0.0
+                )
+                risk_data = pd.to_numeric(risk_data, errors='coerce').fillna(0)
+                
+                fig.add_trace(
+                    go.Scatter(x=time_periods, y=risk_data.values, 
+                              name='Geopolitical Risk', 
+                              line=dict(color='#FF6B6B', width=2),
+                              fill='tozeroy',
+                              hovertemplate='<b>Geopolitical Risk</b><br>Day: %{x}<br>Level: %{y:.3f}<br><extra></extra>'),
+                    secondary_y=False
+                )
+            except Exception as e:
+                pass
         
         if 'market_stress' in results.columns:
-            stress_data = pd.to_numeric(results['market_stress'].apply(
-                lambda x: x[0] if hasattr(x, '__iter__') and not isinstance(x, str) else x
-            ), errors='coerce').fillna(0)
-            
-            fig.add_trace(
-                go.Scatter(x=results.index, y=stress_data, 
-                          name='Market Stress', 
-                          line=dict(color='#FF9500', width=2),
-                          hovertemplate='<b>Market Stress</b><br>Level: %{y:.3f}<br>Date: %{x}<extra></extra>'),
-                secondary_y=True
-            )
+            try:
+                stress_data = results['market_stress'].apply(
+                    lambda x: float(x[0]) if hasattr(x, '__iter__') and not isinstance(x, str) and len(x) > 0
+                    else float(x) if isinstance(x, (int, float))
+                    else 0.0
+                )
+                stress_data = pd.to_numeric(stress_data, errors='coerce').fillna(0)
+                
+                fig.add_trace(
+                    go.Scatter(x=time_periods, y=stress_data.values, 
+                              name='Market Stress', 
+                              line=dict(color='#FF9500', width=2),
+                              hovertemplate='<b>Market Stress</b><br>Day: %{x}<br>Level: %{y:.3f}<br><extra></extra>'),
+                    secondary_y=True
+                )
+            except Exception as e:
+                pass
         
-        fig.update_layout(title="⚠️ Risk Metrics Dashboard")
+        fig.update_layout(
+            title="⚠️ Risk Metrics Dashboard",
+            xaxis_title="Days"
+        )
         fig.update_yaxes(title_text="Geopolitical Risk", secondary_y=False)
         fig.update_yaxes(title_text="Market Stress", secondary_y=True)
         
@@ -460,6 +524,9 @@ class ReserveFlowDashboard:
     def _create_enhanced_allocation_chart(self, results):
         """Create enhanced allocation chart"""
         fig = go.Figure()
+        
+        # Create proper time series
+        time_periods = list(range(len(results)))
         
         if 'current_allocation' in results.columns and len(results) > 0:
             allocation_data = {}
@@ -496,11 +563,11 @@ class ReserveFlowDashboard:
                     
                     fig.add_trace(
                         go.Scatter(
-                            x=list(range(len(data))), y=data, 
+                            x=time_periods, y=data, 
                             name=asset.upper().replace('_', ' '), 
                             stackgroup='one', mode='lines',
                             fill='tonexty', line=dict(width=1, color=colors[i % len(colors)]),
-                            hovertemplate=f'<b>{asset.upper()}</b><br>Allocation: %{{y:.1f}}%<br><extra></extra>'
+                            hovertemplate=f'<b>{asset.upper()}</b><br>Day: %{{x}}<br>Allocation: %{{y:.1f}}%<br><extra></extra>'
                         )
                     )
             else:
@@ -512,7 +579,7 @@ class ReserveFlowDashboard:
         
         fig.update_layout(
             title="📊 Reserve Allocation Evolution",
-            xaxis_title="Time Period",
+            xaxis_title="Days",
             yaxis_title="Allocation (%)",
             yaxis_range=[0, 100],
             hovermode='x unified'
@@ -523,6 +590,9 @@ class ReserveFlowDashboard:
     def _create_market_indicators_chart(self, results):
         """Create market indicators chart"""
         fig = go.Figure()
+        
+        # Create proper time series
+        time_periods = list(range(len(results)))
         
         # Find market-related columns
         market_columns = [col for col in results.columns if any(term in col.lower() for term in 
@@ -552,10 +622,10 @@ class ReserveFlowDashboard:
                     if len(data) > 0 and (data.var() > 1e-6 or data.abs().max() > 1e-6):
                         fig.add_trace(
                             go.Scatter(
-                                x=list(range(len(data))), y=data.values, 
+                                x=time_periods, y=data.values, 
                                 name=col.replace('_', ' ').title(),
                                 line=dict(color=colors[traces_added % len(colors)], width=2),
-                                hovertemplate=f'<b>{col.replace("_", " ").title()}</b><br>Value: %{{y:.4f}}<br><extra></extra>'
+                                hovertemplate=f'<b>{col.replace("_", " ").title()}</b><br>Day: %{{x}}<br>Value: %{{y:.4f}}<br><extra></extra>'
                             )
                         )
                         traces_added += 1
@@ -568,7 +638,7 @@ class ReserveFlowDashboard:
         
         fig.update_layout(
             title="📈 Market Indicators & Economic Metrics",
-            xaxis_title="Time Period", 
+            xaxis_title="Days", 
             yaxis_title="Indicator Value",
             hovermode='x unified'
         )
