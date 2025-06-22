@@ -99,8 +99,10 @@ class CrisisConfig(BaseConfig):
     # Crisis-specific parameters
     flight_to_safety_intensity: float = 2.0
     central_bank_intervention_frequency: float = 0.15
-    gold_surge_factor: float = 1.5  # 50% price surge potential
-    geopolitical_risk_baseline: float = 0.8  # High risk
+    intervention_strength: float = 1.2  # Stronger interventions during crisis
+    gold_surge_factor: float = 1.5
+    geopolitical_risk_baseline: float = 0.8
+    gold_central_bank_purchases: float = 1500.0  # tonnes per year (increased during crisis)
     
     # Emergency liquidation parameters
     emergency_liquidation_probability: float = 0.02
@@ -115,6 +117,7 @@ class DepollarizationConfig(BaseConfig):
     usd_dominance_decline_rate: float = 0.02  # 2% per year
     yuan_adoption_acceleration: float = 0.03
     gold_central_bank_purchases: float = 1800.0  # tonnes per year
+    intervention_strength: float = 0.6  # More targeted interventions
     
     # Alternative reserve assets
     sdr_allocation_increase: float = 0.15
@@ -148,4 +151,6 @@ class InflationSurgeConfig(BaseConfig):
     
     # Central bank response
     gold_hoarding_intensity: float = 2.0
-    reserve_currency_debasement_fear: float = 0.6 
+    reserve_currency_debasement_fear: float = 0.6
+    intervention_strength: float = 0.9  # Strong interventions to defend currency
+    gold_central_bank_purchases: float = 2000.0  # tonnes per year (highest during inflation surge) 

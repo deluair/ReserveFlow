@@ -68,12 +68,22 @@ def main():
         
         # Geopolitical risk metrics
         if 'geopolitical_risk' in results.columns:
-            metrics['Avg Geo Risk'] = results['geopolitical_risk'].mean()
-            metrics['Max Geo Risk'] = results['geopolitical_risk'].max()
+            avg_geo = results['geopolitical_risk'].mean()
+            max_geo = results['geopolitical_risk'].max()
+            # Ensure scalars
+            if hasattr(avg_geo, 'mean'):
+                avg_geo = avg_geo.mean()
+            if hasattr(max_geo, 'max'):
+                max_geo = max_geo.max()
+            metrics['Avg Geo Risk'] = avg_geo
+            metrics['Max Geo Risk'] = max_geo
         
         # Market stress metrics
         if 'market_stress' in results.columns:
-            metrics['Avg Market Stress'] = results['market_stress'].mean()
+            avg_stress = results['market_stress'].mean()
+            if hasattr(avg_stress, 'mean'):
+                avg_stress = avg_stress.mean()
+            metrics['Avg Market Stress'] = avg_stress
             metrics['Crisis Days'] = (results['market_stress'] > 0.7).sum()
         
         # USD strength

@@ -170,10 +170,14 @@ def create_risk_dashboard(results_df: pd.DataFrame) -> go.Figure:
         avg_vol = []
         for idx, row_data in results_df.iterrows():
             if isinstance(row_data['volatilities'], dict):
-                vols = [v for k, v in row_data['volatilities'].items() if k != 'USD']
+                # Ensure values are floats before calculating mean
+                vols = [float(v) for k, v in row_data['volatilities'].items() if k != 'USD' and isinstance(v, (int, float))]
                 avg_vol.append(np.mean(vols) if vols else 0)
             else:
-                avg_vol.append(0)
+                try:
+                    avg_vol.append(float(row_data['volatilities']))
+                except (ValueError, TypeError):
+                    avg_vol.append(0)
         
         fig.add_trace(
             go.Scatter(

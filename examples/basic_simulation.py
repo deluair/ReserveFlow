@@ -49,20 +49,20 @@ def main():
     
     # Geopolitical risk statistics
     if 'geopolitical_risk' in results.columns:
-        avg_risk = results['geopolitical_risk'].mean()
-        max_risk = results['geopolitical_risk'].max()
+        avg_risk = float(results['geopolitical_risk'].mean())
+        max_risk = float(results['geopolitical_risk'].max())
         print(f"Geopolitical Risk: Avg={avg_risk:.3f}, Max={max_risk:.3f}")
     
     # Market stress statistics
     if 'market_stress' in results.columns:
-        avg_stress = results['market_stress'].mean()
-        max_stress = results['market_stress'].max()
+        avg_stress = float(results['market_stress'].mean())
+        max_stress = float(results['market_stress'].max())
         print(f"Market Stress: Avg={avg_stress:.3f}, Max={max_stress:.3f}")
     
     # USD Index statistics
     if 'usd_index' in results.columns:
-        initial_usd = results['usd_index'].iloc[0]
-        final_usd = results['usd_index'].iloc[-1]
+        initial_usd = float(results['usd_index'].iloc[0])
+        final_usd = float(results['usd_index'].iloc[-1])
         usd_change = final_usd - initial_usd
         print(f"USD Index: {initial_usd:.2f} → {final_usd:.2f} ({usd_change:+.2f})")
     

@@ -232,18 +232,22 @@ class ReserveFlowSimulation:
         if 'exchange_rates' in results.columns:
             stats['fx_stats'] = {}
             for currency in self.config.major_currencies[1:]:  # Exclude USD
-                if currency in str(results['exchange_rates'].iloc[0]):
-                    rates = [r.get(currency, 1.0) for r in results['exchange_rates'] if isinstance(r, dict)]
-                    if rates:
-                        stats['fx_stats'][currency] = {
-                            'final_rate': rates[-1],
-                            'volatility': np.std(np.diff(np.log(rates))) * np.sqrt(252),
-                            'total_return': (rates[-1] / rates[0] - 1) * 100
-                        }
+                # Ensure that 'rates' is a list of floats, not dicts
+                rates = []
+                for r in results['exchange_rates']:
+                    if isinstance(r, dict) and currency in r:
+                        rates.append(float(r[currency]))
+                
+                if rates and len(rates) > 1:
+                    stats['fx_stats'][currency] = {
+                        'final_rate': rates[-1],
+                        'volatility': np.std(np.diff(np.log(rates))) * np.sqrt(252),
+                        'total_return': (rates[-1] / rates[0] - 1) * 100
+                    }
         
         # Precious metals statistics
         if 'gold_price' in results.columns:
-            gold_prices = results['gold_price'].dropna()
+            gold_prices = results['gold_price'].dropna().astype(float)
             stats['gold_stats'] = {
                 'final_price': gold_prices.iloc[-1],
                 'total_return': (gold_prices.iloc[-1] / gold_prices.iloc[0] - 1) * 100,
@@ -254,7 +258,8 @@ class ReserveFlowSimulation:
         
         # Geopolitical risk statistics
         if 'geopolitical_risk' in results.columns:
-            geo_risk = results['geopolitical_risk'].dropna()
+            # Ensure the column is numeric before calculations
+            geo_risk = pd.to_numeric(results['geopolitical_risk'].apply(lambda x: x[0] if hasattr(x, '__iter__') else x), errors='coerce').dropna()
             stats['geopolitical_stats'] = {
                 'average_risk': geo_risk.mean(),
                 'max_risk': geo_risk.max(),
